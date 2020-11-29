@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create a bs-avm assume role linked to users account
+#
+Parameters:
+  TargetRoleName:
+    Type: String
+    Description: The name of the role that will be created
+    Default: bs-avm
+
+  UsersAccountID:
+    Type: String
+    Description: AWS Account Id of the Users account (Accounts that contains Users).
+    Default: arn:aws:iam::<accountid>:root
+    MaxLength: 30
+    MinLength: 30
+
+  LocalPolicyName:
+    Type: String
+    Description: The name of the policy that will be assined to TargetRoleName in the target account
+    Default: bs-avm
+
+  Environment:
+    Description: Account environment
+    Type: String
+    AllowedValues:
+      - 'sandbox'
+      - 'development'
+      - 'preproduction'
+      - 'production'
+
+Resources:
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: !Ref TargetRoleName
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref UsersAccountID
+            Action:
+              - sts:AssumeRole
+
+  SpecificPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    DependsOn: ExecutionRole
+    Properties:
+      Description: 'Policy for administrators'
+      ManagedPolicyName: !Ref LocalPolicyName
+      Path: /
+      Roles:
+        - !Ref TargetRoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetResourcePolicy
+          - secretsmanager:GetSecretValue
+          - secretsmanager:DescribeSecret
+          - secretsmanager:ListSecretVersionIds
+          Resource: "arn:aws:secretsmanager:*:*:secret:administrator/*"
+        - Effect: Allow
+          Action:
+          - cloudtrail:DescribeTrails
+          - cloudtrail:GetTrailStatus
+          - cloudtrail:ListTags
+          - cloudtrail:AddTags
+          - cloudtrail:RemoveTags
+          - cloudtrail:CreateTrail
+          - cloudtrail:StartLogging
+          - cloudtrail:UpdateTrail
+          - cloudtrail:UpdateTrail
+          Resource: "*"
+Outputs:
+  UsersAccountID:
+    Description: The name of the new role created in the target account
+    Value: !Ref UsersAccountID
+  TargetRoleName:
+    Description: Target role name
+    Value: !Ref TargetRoleName
+  LocalPolicyName:
+    Description: Local policy name
+    Value: !Ref LocalPolicyName
+  ExecutionRole:
+    Description: Execution role
+    Value: !GetAtt ExecutionRole.Arn
+

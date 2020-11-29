@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create a assume role in all account of the AWS Organization linked to users account
+
+Parameters:
+  TargetRoleName:
+    Type: String
+    Description: The name of the role that will be created
+    Default: bs-techlead
+
+  UsersAccountID:
+    Type: String
+    Description: AWS Account Id of the Users account (Accounts that contains Users).
+    Default: arn:aws:iam:::root
+    MaxLength: 30
+    MinLength: 30
+
+  LocalPolicyName:
+    Type: String
+    Description: The name of the policy that will be assined to TargetRoleName in the target account
+    Default: bs-techlead
+
+  Environment:
+    Type: String
+    Description: Environment name
+    Default: development
+    AllowedValues:
+      - production
+      - preproduction
+      - development
+
+Conditions:
+  
+  EnvironmentIsDevelopment: 
+    Fn::Equals:
+    - !Ref Environment
+    - 'development'
+
+  EnvironmentIsPreproduction: 
+    Fn::Equals:
+    - !Ref Environment
+    - 'preproduction'
+
+  EnvironmentIsProduction: 
+    Fn::Equals: 
+    - !Ref Environment
+    - 'production'
+
+Resources:
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref TargetRoleName
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref UsersAccountID
+            Action:
+              - sts:AssumeRole
+            Condition:
+              BoolIfExists:
+                'aws:MultiFactorAuthPresent': 'true'
+      Path: /
+
+  PolicyDevelopment:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnvironmentIsDevelopment
+    DependsOn: ExecutionRole
+    Properties:
+      Description: 'Generic policy for AM' 
+      ManagedPolicyName: !Ref LocalPolicyName
+      Roles: 
+        - !Ref TargetRoleName       
+      Path: /
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetResourcePolicy
+          - secretsmanager:GetSecretValue
+          - secretsmanager:DescribeSecret
+          - secretsmanager:ListSecretVersionIds
+          Resource: 
+          - "arn:aws:secretsmanager:*:*:secret:developer/*"
+          - "arn:aws:secretsmanager:*:*:secret:techlead/*"
+          - "arn:aws:secretsmanager:*:*:secret:releasemanager/*"
+        - Effect: Allow
+          Action:
+          - codedeploy:GetDeploymentInstance
+          - codedeploy:BatchGetDeploymentGroups
+          - codedeploy:GetDeploymentGroup
+          - codedeploy:GetOnPremisesInstance
+          - codedeploy:GetApplicationRevision
+          - codedeploy:GetDeploymentConfig
+          - codedeploy:ListDeployments
+          - codedeploy:ListApplications
+          - codedeploy:ListOnPremisesInstances
+          - codedeploy:BatchGetDeployments
+          - codedeploy:ListDeploymentInstances
+          - codedeploy:BatchGetApplicationRevisions
+          - codedeploy:BatchGetDeploymentInstances
+          - codedeploy:ListDeploymentGroups
+          - codedeploy:GetDeployment
+          - codedeploy:ListApplicationRevisions
+          - codedeploy:BatchGetApplications
+          - codedeploy:ListDeploymentConfigs
+          - codedeploy:GetApplication
+          - codedeploy:BatchGetOnPremisesInstances
+          - cloudwatch:DescribeAlarmHistory
+          - cloudwatch:GetDashboard
+          - cloudwatch:GetMetricData
+          - cloudwatch:DescribeAlarmsForMetric
+          - cloudwatch:ListDashboards
+          - cloudwatch:DescribeAlarms
+          - cloudwatch:GetMetricStatistics
+          - cloudwatch:GetMetricWidgetImage
+          - cloudwatch:ListMetrics
+          - ec2:DescribeInstances
+          - ec2:DescribeAggregateIdFormat
+          - ec2:DescribeVolumesModifications
+          - ec2:GetHostReservationPurchasePreview
+          - ec2:DescribeSnapshots
+          - ec2:DescribePlacementGroups
+          - ec2:GetConsoleScreenshot
+          - ec2:DescribeHostReservationOfferings
+          - ec2:DescribeInternetGateways
+          - ec2:GetLaunchTemplateData
+          - ec2:GetReservedInstancesExchangeQuote
+          - ec2:GetPasswordData
+          - ec2:GetConsoleOutput
+          - kms:ListKeys
+          - kms:ListAliases
+          - kms:DescribeKey
+          - lambda:*
+          - secretsmanager:GetRandomPassword
+          - secretsmanager:ListSecrets
+          Resource: "*"
+          Condition: 
+            StringEquals: 
+              "aws:RequestedRegion": "eu-west-1"          
+
+  PolicyPreproduction:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnvironmentIsPreproduction
+    DependsOn: ExecutionRole
+    Properties:
+      Description: 'Generic policy for AM' 
+      ManagedPolicyName: !Ref LocalPolicyName
+      Roles: 
+        - !Ref TargetRoleName
+      Path: /
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetResourcePolicy
+          - secretsmanager:GetSecretValue
+          - secretsmanager:DescribeSecret
+          - secretsmanager:ListSecretVersionIds
+          Resource: 
+          - "arn:aws:secretsmanager:*:*:secret:developer/*"
+          - "arn:aws:secretsmanager:*:*:secret:techlead/*"
+          - "arn:aws:secretsmanager:*:*:secret:releasemanager/*"
+        - Effect: Allow
+          Action: autoscaling:UpdateAutoScalingGroup
+          Resource: "*"
+  
+  PolicyProduction:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: EnvironmentIsProduction
+    DependsOn: ExecutionRole
+    Properties:
+      Description: 'Generic policy for AM' 
+      ManagedPolicyName: !Ref LocalPolicyName
+      Roles: 
+        - !Ref TargetRoleName
+      Path: /
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetResourcePolicy
+          - secretsmanager:GetSecretValue
+          - secretsmanager:DescribeSecret
+          - secretsmanager:ListSecretVersionIds
+          Resource: 
+          - "arn:aws:secretsmanager:*:*:secret:developer/*"
+          - "arn:aws:secretsmanager:*:*:secret:techlead/*"
+          - "arn:aws:secretsmanager:*:*:secret:releasemanager/*"
+
+Outputs:
+  UsersAccountID:
+    Description: The name of the new role created in the target account
+    Value: !Ref UsersAccountID
+  TargetRoleName:
+    Description: Target role name
+    Value: !Ref TargetRoleName
+  LocalPolicyName:
+    Description: Local policy name
+    Value: !Ref LocalPolicyName
+  ExecutionRole:
+    Description: Execution role
+    Value: !GetAtt ExecutionRole.Arn
